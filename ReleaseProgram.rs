@@ -2,10 +2,10 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint,
     entrypoint::ProgramResult,
-    msg,
     program_error::ProgramError,
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
+    token::{self, Mint, TokenAccount, Transfer},
 };
 
 entrypoint!(process_instruction);
@@ -20,10 +20,11 @@ fn process_instruction(
     // Get the account that will receive the released tokens
     let recipient_account = next_account_info(accounts_iter)?;
 
-    // Ensure that the recipient account is owned by the program
-    if !recipient_account.is_signer {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    // Get the token mint account
+    let token_mint_account = next_account_info(accounts_iter)?;
+
+    // Get the token account owned by the program
+    let program_token_account = next_account_info(accounts_iter)?;
 
     // Get the rent sysvar to verify that the recipient account is rent-exempt
     let rent_sysvar_account = next_account_info(accounts_iter)?;
@@ -34,11 +35,15 @@ fn process_instruction(
         return Err(ProgramError::AccountNotRentExempt);
     }
 
-    // Perform token release logic here
-    // Example: Transfer tokens to recipient_account
+    // Initialize token program
+    let token_program_id = &token::ID;
 
-    // Log success message
-    msg!("Tokens released successfully to recipient account");
-
+    // Transfer tokens from the program's token account to the recipient account
+    let transfer_instruction = Transfer {
+        source: *program_token_account.key,
+        destination: *recipient_account.key,
+        amount: 100, // Specify the amount of tokens to transfer
+    };
+    token::transfer(program_token_account, &mut [recipient_account.clone()], transfer_instruction)?;
     Ok(())
 }
